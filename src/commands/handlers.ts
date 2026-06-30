@@ -265,12 +265,10 @@ export async function handlePostInstructions(
     return;
   }
 
-  await interaction.channel.send({
+  await interaction.reply({
     embeds: [buildInstructionsEmbed()],
     components: [buildInstructionsComponents()],
   });
-
-  await interaction.reply({ content: "Instructions posted!", ephemeral: true });
 }
 
 export async function handleAnswerButton(interaction: ButtonInteraction, db: Database) {
