@@ -191,16 +191,16 @@ async function runTruthOrDare(interaction: PlayInteraction, db: Database, type: 
     return;
   }
 
+  const scoringHint =
+    type === "truth"
+      ? `Reply with text or click Submit answer to earn ${TRUTH_POINTS} point`
+      : "Reply with media, then community votes with 👍/👎 on your proof (2 pts base)";
+
   const embed = new EmbedBuilder()
     .setTitle(type === "truth" ? "Truth" : "Dare")
     .setDescription(prompt.text)
     .setColor(type === "truth" ? 0x3498db : 0xe74c3c)
-    .setFooter({
-      text:
-        type === "truth"
-          ? `Reply with text or click Submit answer to earn ${TRUTH_POINTS} point`
-          : "Reply with media, then community votes with 👍/👎 on your proof (2 pts base)",
-    });
+    .setFooter({ text: `Prompt #${prompt.id} · ${scoringHint}` });
 
   const message = await interaction.editReply({ embeds: [embed] });
 
