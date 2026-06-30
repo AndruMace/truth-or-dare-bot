@@ -8,8 +8,6 @@ import {
   handleReviewPrompts,
   handleListPrompts,
   handleRemovePrompt,
-  handleAnswerButton,
-  handleAnswerModal,
   handlePlayButton,
   handlePostInstructions,
 } from "../commands/handlers";
@@ -62,11 +60,6 @@ export function registerInteractionHandler(client: Client, db: Database, config:
 
       if (interaction.isButton() && interaction.guild) {
         const action = interaction.customId.split(":")[0];
-
-        if (action === "answer") {
-          await handleAnswerButton(interaction, db);
-          return;
-        }
 
         if (action === "play") {
           await handlePlayButton(interaction, db, client);
@@ -127,9 +120,7 @@ export function registerInteractionHandler(client: Client, db: Database, config:
       }
 
       if (interaction.isModalSubmit()) {
-        if (interaction.customId.startsWith("answer-modal:")) {
-          await handleAnswerModal(interaction, db);
-        } else if (interaction.customId.startsWith("edit-prompt-modal:")) {
+        if (interaction.customId.startsWith("edit-prompt-modal:")) {
           await handleEditPromptModal(interaction, db);
         }
         return;

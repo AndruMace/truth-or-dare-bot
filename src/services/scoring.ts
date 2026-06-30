@@ -173,38 +173,3 @@ export async function processReply(db: Database, message: Message): Promise<bool
   }
   return awarded;
 }
-
-export async function awardTruthAnswer(
-  db: Database,
-  guildId: string,
-  userId: string,
-  promptMessageId: number,
-  sourceId: string,
-  answer: string,
-): Promise<{ awarded: boolean; reason?: string }> {
-  if (!answer.trim()) {
-    return { awarded: false, reason: "Answer cannot be empty." };
-  }
-
-  const promptMsg = await getPromptMessageById(db, promptMessageId, guildId);
-  if (!promptMsg) {
-    return { awarded: false, reason: "This prompt is no longer active." };
-  }
-  if (promptMsg.type !== "truth") {
-    return { awarded: false, reason: "This button is only for truth prompts." };
-  }
-
-  const awarded = await awardScore(db, {
-    guildId,
-    userId,
-    promptMessageId: promptMsg.id,
-    sourceId,
-    points: TRUTH_POINTS,
-    type: "truth",
-  });
-
-  if (!awarded) {
-    return { awarded: false, reason: "You already submitted an answer for this truth." };
-  }
-  return { awarded: true };
-}

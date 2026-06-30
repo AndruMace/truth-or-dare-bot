@@ -5,24 +5,19 @@ import {
   ActionRowBuilder,
   ButtonBuilder,
   ButtonStyle,
-  ModalBuilder,
-  TextInputBuilder,
-  TextInputStyle,
   type ChatInputCommandInteraction,
   type ButtonInteraction,
-  type ModalSubmitInteraction,
   type Client,
 } from "discord.js";
 import type { Database } from "../db/client";
 import { promptMessages } from "../db/schema";
 import { pickRandomPrompt, submitPrompt } from "../services/prompts";
 import { getAllTimeLeaderboard, getWeeklyLeaderboard } from "../services/leaderboard";
-import { awardTruthAnswer, getPromptMessageById, TRUTH_POINTS } from "../services/scoring";
+import { TRUTH_POINTS } from "../services/scoring";
 import {
   DARE_DEFAULT_POINTS,
   DARE_VOTE_BONUS,
 } from "../services/dareVoting";
-import { getPromptById } from "../services/prompts";
 import type { Config } from "../config";
 
 export {
@@ -30,15 +25,6 @@ export {
   handleReviewPrompts,
   handleRemovePrompt,
 } from "./promptAdmin";
-
-export function buildAnswerButton(promptMessageId: number, type: "truth" | "dare") {
-  return new ActionRowBuilder<ButtonBuilder>().addComponents(
-    new ButtonBuilder()
-      .setCustomId(`answer:${type}:${promptMessageId}`)
-      .setLabel(type === "truth" ? "Submit answer" : "How to submit proof")
-      .setStyle(ButtonStyle.Primary),
-  );
-}
 
 export const commands = [
   new SlashCommandBuilder().setName("truth").setDescription("Get a random truth prompt"),
@@ -140,7 +126,7 @@ export function buildInstructionsEmbed(): EmbedBuilder {
     .addFields(
       {
         name: "Truth",
-        value: `${TRUTH_POINTS} point — reply with text, or click **Submit answer** on the prompt.`,
+        value: `${TRUTH_POINTS} point — reply to the prompt with text.`,
       },
       {
         name: "Dare",
@@ -198,7 +184,7 @@ async function runTruthOrDare(interaction: PlayInteraction, db: Database, type: 
 
   const scoringHint =
     type === "truth"
-      ? `Reply with text or click Submit answer to earn ${TRUTH_POINTS} point`
+      ? `Reply with text to earn ${TRUTH_POINTS} point`
       : `Reply with media, then community votes with 👍/👎 (${DARE_DEFAULT_POINTS} pts base; +${DARE_VOTE_BONUS} per extra 👍)`;
 
   const embed = new EmbedBuilder()
@@ -209,21 +195,18 @@ async function runTruthOrDare(interaction: PlayInteraction, db: Database, type: 
 
   const message = await interaction.editReply({ embeds: [embed] });
 
-  const [pm] = await db
-    .insert(promptMessages)
-    .values({
+  await db.insert(promptMessages).values({
       guildId: interaction.guild.id,
       channelId: interaction.channelId,
       messageId: message.id,
       promptId: prompt.id,
       type,
       authorId: interaction.user.id,
-    })
-    .returning();
+    });
 
   await interaction.editReply({
     embeds: [embed],
-    components: [buildAnswerButton(pm.id, type)],
+    components: [buildInstructionsComponents()],
   });
 }
 
@@ -273,85 +256,6 @@ export async function handlePostInstructions(
   await interaction.reply({
     embeds: [buildInstructionsEmbed()],
     components: [buildInstructionsComponents()],
-  });
-}
-
-export async function handleAnswerButton(interaction: ButtonInteraction, db: Database) {
-  if (!interaction.guild) return;
-
-  const [, type, idStr] = interaction.customId.split(":");
-  const promptMessageId = Number(idStr);
-  if (!promptMessageId || (type !== "truth" && type !== "dare")) return;
-
-  if (type === "dare") {
-    await interaction.reply({
-      content:
-        `Reply to the dare message above with an image, video, or audio attachment. Others vote 👍 or 👎 on your proof: ${DARE_DEFAULT_POINTS} pts if votes tie or no one votes, +${DARE_VOTE_BONUS} pts per extra 👍 over 👎, 0 pts if more 👎 than 👍.`,
-      ephemeral: true,
-    });
-    return;
-  }
-
-  const modal = new ModalBuilder()
-    .setCustomId(`answer-modal:${promptMessageId}`)
-    .setTitle("Submit your truth answer")
-    .addComponents(
-      new ActionRowBuilder<TextInputBuilder>().addComponents(
-        new TextInputBuilder()
-          .setCustomId("answer")
-          .setLabel("Your answer")
-          .setStyle(TextInputStyle.Paragraph)
-          .setRequired(true)
-          .setMaxLength(1000),
-      ),
-    );
-
-  await interaction.showModal(modal);
-}
-
-export async function handleAnswerModal(interaction: ModalSubmitInteraction, db: Database) {
-  if (!interaction.guild) return;
-
-  const promptMessageId = Number(interaction.customId.replace("answer-modal:", ""));
-  if (!promptMessageId) return;
-
-  const answer = interaction.fields.getTextInputValue("answer");
-  const result = await awardTruthAnswer(
-    db,
-    interaction.guild.id,
-    interaction.user.id,
-    promptMessageId,
-    interaction.id,
-    answer,
-  );
-
-  if (!result.awarded) {
-    await interaction.reply({
-      content: result.reason ?? "Could not award points.",
-      ephemeral: true,
-    });
-    return;
-  }
-
-  const promptMsg = await getPromptMessageById(db, promptMessageId, interaction.guild.id);
-  const prompt = promptMsg ? await getPromptById(db, promptMsg.promptId) : null;
-
-  const answerEmbed = new EmbedBuilder()
-    .setAuthor({
-      name: `${interaction.user.displayName}'s answer`,
-      iconURL: interaction.user.displayAvatarURL(),
-    })
-    .setDescription(answer)
-    .setColor(0x3498db);
-
-  if (prompt?.text) {
-    answerEmbed.addFields({ name: "Truth", value: prompt.text });
-  }
-
-  await interaction.reply({ embeds: [answerEmbed] });
-  await interaction.followUp({
-    content: `+${TRUTH_POINTS} point! Check /leaderboard to see your score.`,
-    ephemeral: true,
   });
 }
 
