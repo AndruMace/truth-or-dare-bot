@@ -18,6 +18,10 @@ import { promptMessages } from "../db/schema";
 import { pickRandomPrompt, submitPrompt } from "../services/prompts";
 import { getAllTimeLeaderboard, getWeeklyLeaderboard } from "../services/leaderboard";
 import { awardTruthAnswer, getPromptMessageById, TRUTH_POINTS } from "../services/scoring";
+import {
+  DARE_DEFAULT_POINTS,
+  DARE_VOTE_BONUS,
+} from "../services/dareVoting";
 import { getPromptById } from "../services/prompts";
 import type { Config } from "../config";
 
@@ -143,8 +147,9 @@ export function buildInstructionsEmbed(): EmbedBuilder {
         value: [
           "Reply to the dare with an image, video, or audio proof.",
           "The bot adds 👍/👎 — **everyone votes on your proof:**",
-          "• **+2 pts** per 👍 · **−2 pts** per 👎",
-          "• No votes = **2 pts** · More 👎 than 👍 = **0 pts**",
+          `• **${DARE_DEFAULT_POINTS} pts** if no votes or votes tie`,
+          `• **+${DARE_VOTE_BONUS} pts** for each extra 👍 over 👎`,
+          "• More 👎 than 👍 = **0 pts**",
         ].join("\n"),
       },
       {
@@ -194,7 +199,7 @@ async function runTruthOrDare(interaction: PlayInteraction, db: Database, type: 
   const scoringHint =
     type === "truth"
       ? `Reply with text or click Submit answer to earn ${TRUTH_POINTS} point`
-      : "Reply with media, then community votes with 👍/👎 on your proof (2 pts base)";
+      : `Reply with media, then community votes with 👍/👎 (${DARE_DEFAULT_POINTS} pts base; +${DARE_VOTE_BONUS} per extra 👍)`;
 
   const embed = new EmbedBuilder()
     .setTitle(type === "truth" ? "Truth" : "Dare")
@@ -281,7 +286,7 @@ export async function handleAnswerButton(interaction: ButtonInteraction, db: Dat
   if (type === "dare") {
     await interaction.reply({
       content:
-        "Reply to the dare message above with an image, video, or audio attachment. Others vote 👍 (+2 pts each) or 👎 (−2 pts each) on your proof. More 👎 than 👍 = 0 points.",
+        `Reply to the dare message above with an image, video, or audio attachment. Others vote 👍 or 👎 on your proof: ${DARE_DEFAULT_POINTS} pts if votes tie or no one votes, +${DARE_VOTE_BONUS} pts per extra 👍 over 👎, 0 pts if more 👎 than 👍.`,
       ephemeral: true,
     });
     return;

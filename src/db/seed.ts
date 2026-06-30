@@ -1,39 +1,53 @@
 import { eq, and, isNull } from "drizzle-orm";
 import { getDb } from "./client";
 import { prompts } from "./schema";
-import defaultPrompts from "../data/default-prompts.json";
+import { loadDefaultPrompts } from "../data/prompts/manifest";
+
+const INSERT_BATCH = 100;
 
 export async function runSeed(databaseUrl: string) {
   const db = getDb(databaseUrl);
+  const { truths, dares } = loadDefaultPrompts();
+  const allTexts = [...truths, ...dares];
 
   const existing = await db
-    .select({ id: prompts.id })
+    .select({ text: prompts.text })
     .from(prompts)
-    .where(and(isNull(prompts.guildId), eq(prompts.status, "approved")))
-    .limit(1);
+    .where(and(isNull(prompts.guildId), eq(prompts.status, "approved")));
 
-  if (existing.length > 0) {
-    console.log("Default prompts already seeded, skipping.");
+  const existingTexts = new Set(existing.map((r) => r.text));
+
+  const rows = [
+    ...truths
+      .filter((text) => !existingTexts.has(text))
+      .map((text) => ({
+        guildId: null,
+        type: "truth" as const,
+        text,
+        status: "approved" as const,
+      })),
+    ...dares
+      .filter((text) => !existingTexts.has(text))
+      .map((text) => ({
+        guildId: null,
+        type: "dare" as const,
+        text,
+        status: "approved" as const,
+      })),
+  ];
+
+  if (rows.length === 0) {
+    console.log(`Default prompts up to date (${existingTexts.size} built-ins in DB).`);
     return;
   }
 
-  const rows = [
-    ...defaultPrompts.truths.map((text) => ({
-      guildId: null,
-      type: "truth" as const,
-      text,
-      status: "approved" as const,
-    })),
-    ...defaultPrompts.dares.map((text) => ({
-      guildId: null,
-      type: "dare" as const,
-      text,
-      status: "approved" as const,
-    })),
-  ];
+  for (let i = 0; i < rows.length; i += INSERT_BATCH) {
+    await db.insert(prompts).values(rows.slice(i, i + INSERT_BATCH));
+  }
 
-  await db.insert(prompts).values(rows);
-  console.log(`Seeded ${rows.length} default prompts.`);
+  console.log(
+    `Seeded ${rows.length} new default prompts (${existingTexts.size} already existed, ${allTexts.length} in manifest).`,
+  );
 }
 
 if (import.meta.main) {

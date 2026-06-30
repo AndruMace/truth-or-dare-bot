@@ -9,6 +9,8 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "bun run src/db/migrate.ts",
     "db:seed": "bun run src/db/seed.ts",
+    "validate-prompts": "bun run src/data/prompts/validate.ts",
+    "generate-prompt-bank": "bun run scripts/generate-prompt-bank.ts",
     "register-commands": "bun run src/scripts/register-commands.ts"
   },
   "dependencies": {

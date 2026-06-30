@@ -1,12 +1,11 @@
-export const DARE_VOTE_UP_VALUE = 2;
-export const DARE_VOTE_DOWN_VALUE = 2;
-export const DARE_DEFAULT_POINTS = 2;
+export const DARE_VOTE_BONUS = 5;
+export const DARE_DEFAULT_POINTS = 5;
 
-/** Net dare points from community vote counts (excludes bot reactions). */
+/** Community vote scoring (excludes bot and submitter). */
 export function calculateDareVotePoints(upVotes: number, downVotes: number): number {
   if (downVotes > upVotes) return 0;
-  if (upVotes === 0 && downVotes === 0) return DARE_DEFAULT_POINTS;
-  return Math.max(0, upVotes * DARE_VOTE_UP_VALUE - downVotes * DARE_VOTE_DOWN_VALUE);
+  const extraUpvotes = upVotes - downVotes;
+  return DARE_DEFAULT_POINTS + extraUpvotes * DARE_VOTE_BONUS;
 }
 
 export const THUMBS_UP = "\u{1F44D}";
