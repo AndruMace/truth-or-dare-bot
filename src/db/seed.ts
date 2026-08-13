@@ -1,4 +1,4 @@
-import { eq, and, isNull } from "drizzle-orm";
+import { eq, and, isNull, inArray } from "drizzle-orm";
 import { getDb } from "./client";
 import { prompts } from "./schema";
 import { loadDefaultPrompts } from "../data/prompts/manifest";
@@ -9,9 +9,10 @@ export async function runSeed(databaseUrl: string) {
   const db = getDb(databaseUrl);
   const { truths, dares } = loadDefaultPrompts();
   const allTexts = [...truths, ...dares];
+  const manifestSet = new Set(allTexts);
 
   const existing = await db
-    .select({ text: prompts.text })
+    .select({ id: prompts.id, text: prompts.text })
     .from(prompts)
     .where(and(isNull(prompts.guildId), eq(prompts.status, "approved")));
 
@@ -36,17 +37,23 @@ export async function runSeed(databaseUrl: string) {
       })),
   ];
 
-  if (rows.length === 0) {
-    console.log(`Default prompts up to date (${existingTexts.size} built-ins in DB).`);
-    return;
-  }
-
   for (let i = 0; i < rows.length; i += INSERT_BATCH) {
     await db.insert(prompts).values(rows.slice(i, i + INSERT_BATCH));
   }
 
+  const staleIds = existing.filter((r) => !manifestSet.has(r.text)).map((r) => r.id);
+  let retired = 0;
+  for (let i = 0; i < staleIds.length; i += INSERT_BATCH) {
+    const batch = staleIds.slice(i, i + INSERT_BATCH);
+    await db
+      .update(prompts)
+      .set({ status: "rejected", updatedAt: new Date() })
+      .where(and(isNull(prompts.guildId), inArray(prompts.id, batch)));
+    retired += batch.length;
+  }
+
   console.log(
-    `Seeded ${rows.length} new default prompts (${existingTexts.size} already existed, ${allTexts.length} in manifest).`,
+    `Seeded ${rows.length} new default prompts; retired ${retired} removed built-ins (${allTexts.length} in manifest).`,
   );
 }
 

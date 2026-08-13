@@ -4,30 +4,31 @@ import {
   loadDefaultPrompts,
 } from "./manifest";
 
-const MIN_COUNT = 450;
-const TARGET_LOW = 480;
-const TARGET_HIGH = 520;
+const MIN_COUNT = 300;
+const TARGET_LOW = 350;
+const TARGET_HIGH = 480;
 const MAX_LENGTH = 400;
 const NEAR_DUPE_PREFIX_LEN = 60;
 
-const DARE_BLOCKLIST = [
-  "nude",
-  "nudes",
-  "lingerie",
-  "underwear",
-  "bathroom",
-  "selfie",
-  "outfit",
-  "bedroom",
-  "browser history",
-  "photo roll",
-  "camera roll",
-  "dm ",
-  "dms ",
-  "naked",
-  "strip",
-  "sexual act",
-  "send a nude",
+/** Whole-word / phrase checks to avoid false positives (e.g. "power strip"). */
+const DARE_BLOCKLIST_PATTERNS = [
+  /\bnudes?\b/i,
+  /\blingerie\b/i,
+  /\bunderwear\b/i,
+  /\bbathroom\b/i,
+  /\bselfie\b/i,
+  /\boutfit\b/i,
+  /\bbedroom\b/i,
+  /browser history/i,
+  /photo roll/i,
+  /camera roll/i,
+  /\byour dms?\b/i,
+  /\bdm history\b/i,
+  /\bopen (?:a |your )?dms?\b/i,
+  /\bnaked\b/i,
+  /\bstrip(?:ping|tease|ped)?\b/i,
+  /sexual act/i,
+  /send a nude/i,
 ];
 
 export type ValidationResult = {
@@ -114,10 +115,9 @@ export function validatePromptBank(): ValidationResult {
   }
 
   for (const text of dares) {
-    const lower = text.toLowerCase();
-    for (const term of DARE_BLOCKLIST) {
-      if (lower.includes(term)) {
-        errors.push(`Dare blocklist hit "${term}": "${text.slice(0, 60)}..."`);
+    for (const pattern of DARE_BLOCKLIST_PATTERNS) {
+      if (pattern.test(text)) {
+        errors.push(`Dare blocklist hit ${pattern}: "${text.slice(0, 60)}..."`);
       }
     }
     const hasProofHint =

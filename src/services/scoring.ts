@@ -130,17 +130,32 @@ export async function processReply(db: Database, message: Message): Promise<bool
     }
   }
 
+  // Only log when someone uses Discord Reply — avoids noise from normal chat.
   if (msg.author.bot || !msg.guildId || !msg.reference?.messageId) {
     return false;
   }
 
+  console.log(
+    `Reply from ${msg.author.id} to ${msg.reference.messageId} (contentLen=${msg.content.length}, attachments=${msg.attachments.size})`,
+  );
+
   const promptMsg = await getPromptMessageByDiscordId(db, msg.reference.messageId, msg.guildId);
-  if (!promptMsg) return false;
+  if (!promptMsg) {
+    console.log(`Reply ignored: no prompt_messages row for message ${msg.reference.messageId}`);
+    return false;
+  }
 
   const isValid =
     promptMsg.type === "truth" ? hasValidTruthReply(msg) : hasValidDareAttachment(msg);
 
-  if (!isValid) return false;
+  if (!isValid) {
+    console.log(
+      `Reply ignored: invalid ${promptMsg.type} submission (need ${
+        promptMsg.type === "truth" ? "non-empty text" : "image/video/audio attachment"
+      })`,
+    );
+    return false;
+  }
 
   if (promptMsg.type === "dare") {
     const awarded = await awardScore(db, {
@@ -153,8 +168,11 @@ export async function processReply(db: Database, message: Message): Promise<bool
     });
 
     if (awarded) {
-      await msg.react(THUMBS_UP).catch(() => {});
-      await msg.react(THUMBS_DOWN).catch(() => {});
+      await msg.react(THUMBS_UP).catch((err) => console.error("Failed to add 👍:", err));
+      await msg.react(THUMBS_DOWN).catch((err) => console.error("Failed to add 👎:", err));
+      console.log(`Dare scored for ${msg.author.id} on promptMessage ${promptMsg.id}`);
+    } else {
+      console.log(`Dare not scored for ${msg.author.id}: already scored this prompt or DB conflict`);
     }
     return awarded;
   }
@@ -169,7 +187,10 @@ export async function processReply(db: Database, message: Message): Promise<bool
   });
 
   if (awarded) {
-    await msg.react("✅").catch(() => {});
+    await msg.react("✅").catch((err) => console.error("Failed to add ✅:", err));
+    console.log(`Truth scored for ${msg.author.id} on promptMessage ${promptMsg.id}`);
+  } else {
+    console.log(`Truth not scored for ${msg.author.id}: already scored this prompt or DB conflict`);
   }
   return awarded;
 }
