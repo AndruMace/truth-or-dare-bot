@@ -7,7 +7,7 @@ A Bun + discord.js bot for playing Truth or Dare with automatic scoring and serv
 - `/truth` and `/dare` — solo prompts anytime
 - **Scoring:** reply to the bot's message with text (truth = 1 pt) or an image/video/audio attachment (dare = 5 pts base, community voting adjusts)
 - One scoring reply per user per prompt message
-- Built-in prompt bank (~350–450 truths and dares each) + server custom prompts (mod-approved)
+- Built-in prompt bank (~1,400 truths and ~1,200 dares) + server custom prompts (mod-approved)
 - `/leaderboard` — all-time and weekly (resets Monday 00:00 UTC)
 - `/submit-truth`, `/submit-dare`, `/review-prompts` for custom content
 
@@ -90,7 +90,7 @@ The bot container runs migrations and seeds default prompts on startup. New buil
 
 ### Prompt bank
 
-The default bank lives in [`src/data/prompts/`](src/data/prompts/) (~350–450 adult-themed truths and Discord-verifiable dares each). Truths may include sex/kink topics; dares require voice, screenshot, object photo, or clothed performance video — no body-focused or explicit media. See [`src/data/prompts/PROMPT_GUIDELINES.md`](src/data/prompts/PROMPT_GUIDELINES.md).
+The default bank lives in [`src/data/prompts/`](src/data/prompts/) (~1,400 truths and ~1,200 Discord-verifiable dares). Truths mix spicy/sex/kink, vulnerability/bonding, and light/funny themes; dares require voice, screenshot, object photo, handwritten note, or clothed performance video — no body-focused or explicit media. See [`src/data/prompts/PROMPT_GUIDELINES.md`](src/data/prompts/PROMPT_GUIDELINES.md).
 
 Validate before committing prompt changes:
 
@@ -98,11 +98,10 @@ Validate before committing prompt changes:
 bun run validate-prompts
 ```
 
-Regenerate category JSON from the generator script (optional):
+After updating built-in JSON, seed the database (or restart the bot container) so new prompts are inserted and removed built-ins are retired:
 
 ```bash
-bun run generate-prompt-bank
-bun run validate-prompts
+bun run db:seed
 ```
 
 After first boot, register commands from your host (once):
